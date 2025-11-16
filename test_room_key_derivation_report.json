@@ -1,0 +1,198 @@
+{
+  "testTime": "2025-11-16T06:22:18.416Z",
+  "testConfig": {
+    "serverUrl": "ws://localhost:3000",
+    "timeout": 30000
+  },
+  "testResults": [
+    {
+      "timestamp": "2025-11-16T06:22:09.349Z",
+      "type": "info",
+      "message": "正在连接到WebSocket服务器...",
+      "testStep": "连接"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.370Z",
+      "type": "success",
+      "message": "WebSocket连接成功",
+      "testStep": "连接"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.371Z",
+      "type": "key",
+      "message": "正在请求服务端生成客户端密钥对...",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.372Z",
+      "type": "system",
+      "message": "发送消息: request_client_keys",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.372Z",
+      "type": "system",
+      "message": "收到欢迎消息，用户ID: user_1763274129370_3dbtxawdm",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.372Z",
+      "type": "key",
+      "message": "服务器公钥长度: 130 字符",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.373Z",
+      "type": "system",
+      "message": "收到消息: room_list",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.382Z",
+      "type": "key",
+      "message": "收到服务端生成的客户端密钥对",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:09.382Z",
+      "type": "key",
+      "message": "客户端公钥长度: 130",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.384Z",
+      "type": "success",
+      "message": "客户端密钥对生成成功",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.384Z",
+      "type": "key",
+      "message": "公钥长度: 130 字符",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.384Z",
+      "type": "key",
+      "message": "私钥长度: 64 字符",
+      "testStep": "生成客户端密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.384Z",
+      "type": "room",
+      "message": "正在创建测试房间: test_room_1763274129346",
+      "testStep": "创建房间"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.385Z",
+      "type": "system",
+      "message": "发送消息: create_room",
+      "testStep": "创建房间"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.387Z",
+      "type": "system",
+      "message": "收到消息: room_created",
+      "testStep": "创建房间"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.387Z",
+      "type": "system",
+      "message": "收到消息: room_joined",
+      "testStep": "创建房间"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:11.387Z",
+      "type": "system",
+      "message": "收到消息: room_list_update",
+      "testStep": "创建房间"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.399Z",
+      "type": "room",
+      "message": "正在请求房间密钥: test_room_1763274129346",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.399Z",
+      "type": "system",
+      "message": "发送消息: request_room_keys",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.416Z",
+      "type": "room",
+      "message": "收到房间密钥信息: test_room_1763274129346",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.416Z",
+      "type": "key",
+      "message": "加密数据: \"86d0015282f53937f0c21298b6193b6cff758decd852b8cb901210e50479aca8bf856fc1a1d3fc14fb840a426ae98c07970...",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.416Z",
+      "type": "room",
+      "message": "收到房间密钥摘要: test_room_1763274129346",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:13.416Z",
+      "type": "key",
+      "message": "密钥摘要: {\"baseKeyPreview\":\"30de13c1b219f7b2...\",\"dynamicFactor\":\"test_room_1763274129346_1763274131387\",\"keyVersion\":1,\"hasBaseKey\":true,\"hasDynamicFactor\":true}",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.414Z",
+      "type": "success",
+      "message": "房间密钥信息获取成功",
+      "testStep": "请求房间密钥"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.414Z",
+      "type": "key",
+      "message": "正在模拟客户端解密和组密钥计算...",
+      "testStep": "模拟客户端处理"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.415Z",
+      "type": "key",
+      "message": "房间基础值 S_i: demo_si_1763274138414",
+      "testStep": "模拟客户端处理"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.415Z",
+      "type": "key",
+      "message": "动态因子 F_room: demo_froom_1763274138415",
+      "testStep": "模拟客户端处理"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.415Z",
+      "type": "key",
+      "message": "计算出的组密钥 GK: GK_ZGVtb19zaV8xNzYzMjc0MTM4NDE0X2Rl",
+      "testStep": "模拟客户端处理"
+    },
+    {
+      "timestamp": "2025-11-16T06:22:18.416Z",
+      "type": "success",
+      "message": "测试报告已生成: C:\\Users\\KDDAyesp\\Documents\\trae_projects\\smSevrer\\test_room_key_derivation_report.json",
+      "testStep": "生成报告"
+    }
+  ],
+  "summary": {
+    "totalTests": 29,
+    "successCount": 4,
+    "errorCount": 0,
+    "keyOperations": 16
+  },
+  "finalState": {
+    "connected": true,
+    "userId": "user_1763274129370_3dbtxawdm",
+    "roomId": "test_room_1763274129346",
+    "hasServerPublicKey": true,
+    "hasClientKeyPair": true,
+    "hasRoomKeyInfo": true,
+    "hasGroupKey": true
+  }
+}

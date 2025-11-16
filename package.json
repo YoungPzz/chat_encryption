@@ -1,0 +1,26 @@
+{
+  "name": "smserver",
+  "version": "1.0.0",
+  "description": "Node.js WebSocket服务器项目",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "gm-crypto": "^0.1.12",
+    "sm-crypto": "^0.3.13",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "websocket",
+    "nodejs",
+    "server"
+  ],
+  "author": "",
+  "license": "ISC"
+}

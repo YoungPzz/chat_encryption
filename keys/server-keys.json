@@ -1,0 +1,12 @@
+{
+  "publicKey": "04b602abc2e4662557863ad71343657056989226ea8c3cc764d043ca383ce28a72c796885c23c873afe518edc821893f572666e58bc899b3e89b2418cfd38424ee",
+  "privateKey": "36d0d622589da45d89267312bb2b6ed5b3a1e8414056656e9301e4794fb2351d",
+  "algorithm": "SM2",
+  "curve": "sm2p256v1",
+  "keyLength": {
+    "publicKey": 130,
+    "privateKey": 64
+  },
+  "createdAt": "2025-11-14T04:43:25.494Z",
+  "version": "1.0"
+}

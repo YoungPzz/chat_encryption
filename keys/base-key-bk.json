@@ -1,0 +1,9 @@
+{
+  "key": "65c7e90af998db9aa9408ca44e1e28f0",
+  "algorithm": "BK-Random",
+  "keyLength": 128,
+  "format": "hex",
+  "createdAt": "2025-11-16T05:18:43.824Z",
+  "version": "1.0",
+  "description": "基础密钥BK，用于组密钥派生，符合SM4密钥长度标准"
+}

@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SM2密钥交换测试客户端</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .status.disconnected {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .status.connecting {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status.connected {
+            background: #27ae60;
+            color: white;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .key-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+        }
+
+        .key-section h3 {
+            color: #2980b9;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .key-item {
+            margin: 8px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .key-label {
+            font-weight: bold;
+            color: #34495e;
+            display: inline-block;
+            width: 80px;
+        }
+
+        .key-value {
+            font-family: 'Courier New', monospace;
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            word-break: break-all;
+            font-size: 0.85em;
+        }
+
+        .chat-container {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #34495e;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+
+        .message {
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-word;
+        }
+
+        .message.system {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            color: #2c3e50;
+        }
+
+        .message.key-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+            font-size: 0.9em;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+
+        .controls {
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            color: #f39c12;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+        }
+
+        .success {
+            color: #27ae60;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 SM2国密密钥交换测试客户端</h1>
+            <div id="connectionStatus" class="status disconnected">未连接</div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📡 连接控制</h2>
+                <div class="key-section">
+                    <h3>连接状态</h3>
+                    <div class="key-item">
+                        <span class="key-label">服务器:</span>
+                        <span id="serverUrl">ws://localhost:3000</span>
+                    </div>
+                    <div class="key-item">
+                        <span class="key-label">状态:</span>
+                        <span id="connectionState">未连接</span>
+                    </div>
+                    <div class="key-item">
+                        <span class="key-label">用户ID:</span>
+                        <span id="userId">-</span>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <div class="button-group">
+                        <button id="connectBtn" class="btn btn-primary">🔗 连接服务器</button>
+                        <button id="disconnectBtn" class="btn btn-danger" disabled>❌ 断开连接</button>
+                        <button id="generateKeysBtn" class="btn btn-warning" disabled>🔑 生成客户端密钥</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>🔑 密钥信息</h2>
+                <div class="key-section">
+                    <h3>服务器公钥</h3>
+                    <div id="serverKeyInfo">
+                        <div class="key-item">
+                            <span class="key-label">状态:</span>
+                            <span id="serverKeyStatus">未接收</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key-label">算法:</span>
+                            <span id="serverKeyAlgorithm">-</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key-label">曲线:</span>
+                            <span id="serverKeyCurve">-</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key-label">公钥:</span>
+                            <div id="serverKeyValue" class="key-value">等待接收...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="key-section">
+                    <h3>客户端密钥对</h3>
+                    <div id="clientKeyInfo">
+                        <div class="key-item">
+                            <span class="key-label">状态:</span>
+                            <span id="clientKeyStatus">未生成</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key-label">公钥:</span>
+                            <div id="clientPublicKey" class="key-value">未生成</div>
+                        </div>
+                        <div class="key-item">
+                            <span class="key-label">私钥:</span>
+                            <div id="clientPrivateKey" class="key-value">未生成</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-header">
+                    💬 密钥交换日志
+                </div>
+                <div id="chatMessages" class="chat-messages">
+                    <div class="message system">
+                        🔧 客户端已初始化，等待连接服务器...
+                    </div>
+                </div>
+                <div class="controls">
+                    <div class="button-group">
+                        <button id="clearChatBtn" class="btn btn-primary">🗑️ 清空日志</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入SM2加密库 -->
+    <script src="https://cdn.jsdelivr.net/npm/sm-crypto@1.0.2/dist/sm2.min.js"></script>
+    
+    <script>
+        class SM2KeyExchangeClient {
+            constructor() {
+                this.ws = null;
+                this.isConnected = false;
+                this.serverPublicKey = null;
+                this.clientKeyPair = null;
+                this.userId = null;
+                
+                this.initEventListeners();
+                this.updateUI();
+            }
+
+            initEventListeners() {
+                document.getElementById('connectBtn').addEventListener('click', () => this.connect());
+                document.getElementById('disconnectBtn').addEventListener('click', () => this.disconnect());
+                document.getElementById('generateKeysBtn').addEventListener('click', () => this.generateClientKeys());
+                document.getElementById('clearChatBtn').addEventListener('click', () => this.clearChat());
+            }
+
+            connect() {
+                if (this.isConnected) return;
+
+                const serverUrl = 'ws://localhost:3000';
+                this.addLog('system', `🔗 正在连接服务器: ${serverUrl}`);
+                
+                try {
+                    this.ws = new WebSocket(serverUrl);
+                    this.setupWebSocketEvents();
+                } catch (error) {
+                    this.addLog('error', `❌ 连接失败: ${error.message}`);
+                }
+            }
+
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                }
+            }
+
+            setupWebSocketEvents() {
+                this.ws.onopen = () => {
+                    console.log('WebSocket onopen 事件触发');
+                    this.isConnected = true;
+                    this.addLog('system', '✅ 连接成功!');
+                    this.updateUI();
+                };
+
+                this.ws.onmessage = (event) => {
+                    console.log('收到原始消息数据:', event.data);
+                    console.log('消息类型:', typeof event.data);
+                    
+                    try {
+                        const message = JSON.parse(event.data);
+                        console.log('解析后的消息对象:', message);
+                        this.handleMessage(message);
+                    } catch (error) {
+                        console.error('JSON解析错误:', error);
+                        this.addLog('error', `❌ 消息解析错误: ${error.message}`);
+                        this.addLog('error', `❌ 原始数据: ${event.data}`);
+                    }
+                };
+
+                this.ws.onclose = (event) => {
+                    console.log('WebSocket onclose 事件:', event);
+                    this.isConnected = false;
+                    this.serverPublicKey = null;
+                    this.clientKeyPair = null;
+                    this.userId = null;
+                    this.addLog('system', '❌ 连接已断开');
+                    this.updateUI();
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket onerror:', error);
+                    this.addLog('error', `❌ WebSocket错误: ${error}`);
+                };
+            }
+
+            handleMessage(message) {
+                console.log('=== handleMessage 被调用 ===');
+                console.log('消息内容:', message);
+                console.log('消息类型:', message.type);
+                console.log('消息对象键:', Object.keys(message));
+
+                switch (message.type) {
+                    case 'welcome':
+                        console.log('处理 welcome 消息');
+                        this.handleWelcome(message);
+                        break;
+                    case 'key_info':
+                        console.log('处理 key_info 消息');
+                        this.handleKeyInfo(message);
+                        break;
+                    case 'error':
+                        console.log('处理 error 消息');
+                        this.addLog('error', `❌ 服务器错误: ${message.message}`);
+                        break;
+                    default:
+                        console.log('未处理的消息类型:', message.type);
+                        this.addLog('system', `📨 收到消息: ${message.type}`);
+                        console.log('消息数据:', message);
+                }
+            }
+
+            handleWelcome(message) {
+                console.log('收到欢迎消息:', message);
+                this.userId = message.userId;
+                this.serverPublicKey = message.serverKeyInfo;
+                
+                this.addLog('system', `👋 欢迎! 用户ID: ${this.userId}`);
+                this.addLog('system', `🔑 收到服务器公钥`);
+                this.addLog('system', `📋 服务器公钥长度: ${this.serverPublicKey?.publicKey?.length || 0} 字符`);
+                
+                console.log('服务器公钥信息:', this.serverPublicKey);
+                this.updateUI();
+            }
+
+            handleKeyInfo(message) {
+                this.addLog('key-info', `
+📋 === SM2密钥交换完成 ===
+服务器信息:
+  算法: ${message.serverKey.algorithm}
+  曲线: ${message.serverKey.curve}
+  公钥长度: ${message.summary.serverPublicKeyLength} 字符
+  
+客户端信息:
+  算法: ${message.clientKey.algorithm}
+  曲线: ${message.clientKey.curve}
+  公钥长度: ${message.summary.clientPublicKeyLength} 字符
+  私钥长度: ${message.summary.clientPrivateKeyLength} 字符
+  
+交换状态: ${message.summary.exchangeCompleted ? '✅ 完成' : '❌ 失败'}
+时间: ${new Date(message.timestamp).toLocaleString()}
+===================================
+                `);
+            }
+
+            // 处理房间密钥信息消息
+            handleRoomKeyInfoMessage(data) {
+                this.addLog('key-info', `🔑 收到房间密钥信息: ${data.roomId}`);
+                
+                try {
+                    // 解密房间密钥数据
+                    const decryptedData = this.decryptRoomKeyData(data.encryptedData, this.clientKeyPair?.privateKey);
+                    if (decryptedData) {
+                        // 保存房间基础值和动态因子
+                        this.currentRoom = this.currentRoom || {};
+                        this.currentRoom.si = decryptedData.si;
+                        this.currentRoom.froom = decryptedData.froom;
+                        
+                        // 计算组密钥
+                        const groupKey = this.calculateGroupKey(decryptedData.si, decryptedData.froom);
+                        this.currentRoom.groupKey = groupKey;
+                        
+                        this.addLog('key-info', `✅ 房间密钥解密成功!`);
+                        this.addLog('key-info', `🔑 房间基础值 S_i: ${this.formatKey(decryptedData.si)}`);
+                        this.addLog('key-info', `🔄 房间动态因子 F_room: ${this.formatKey(decryptedData.froom)}`);
+                        this.addLog('key-info', `🔐 组密钥 GK: ${this.formatKey(groupKey)}`);
+                        
+                        // 更新UI显示
+                        this.updateRoomKeyDisplay();
+                    } else {
+                        this.addLog('error', `❌ 房间密钥解密失败: 无效的私钥或数据`);
+                    }
+                } catch (error) {
+                    this.addLog('error', `❌ 处理房间密钥信息错误: ${error.message}`);
+                }
+            }
+
+            // 处理房间密钥摘要消息
+            handleRoomKeySummaryMessage(data) {
+                this.addLog('key-info', `📋 房间密钥摘要: ${data.roomId}`);
+                this.updateRoomKeyDisplay();
+            }
+
+            // 解密房间密钥数据
+            decryptRoomKeyData(encryptedData, privateKey) {
+                try {
+                    // 使用SM2私钥解密数据
+                    // 这里需要实际的SM2解密实现
+                    // 暂时使用模拟实现
+                    if (!encryptedData || !privateKey) {
+                        return null;
+                    }
+                    
+                    // 模拟解密过程（实际应该使用SM2库）
+                    const decrypted = {
+                        si: 'demo_si_' + Date.now(), // 模拟S_i值
+                        froom: encryptedData.froom || 'demo_froom_' + Date.now() // 模拟F_room值
+                    };
+                    
+                    return decrypted;
+                } catch (error) {
+                    console.error('房间密钥解密失败:', error);
+                    return null;
+                }
+            }
+
+            // 计算组密钥
+            calculateGroupKey(si, froom) {
+                try {
+                    // 使用KDF计算组密钥: GK = KDF(S_i, F_room)
+                    // 这里需要实际的SM3-KDF实现
+                    // 暂时使用模拟实现
+                    const combined = si + '_' + froom;
+                    const groupKey = 'GK_' + btoa(combined).substring(0, 32);
+                    return groupKey;
+                } catch (error) {
+                    console.error('组密钥计算失败:', error);
+                    return null;
+                }
+            }
+
+            // 更新房间密钥显示
+            updateRoomKeyDisplay() {
+                const serverKeyInfo = document.getElementById('serverKeyInfo');
+                const clientKeyInfo = document.getElementById('clientKeyInfo');
+                
+                if (serverKeyInfo && clientKeyInfo && this.currentRoom && this.currentRoom.groupKey) {
+                    // 在服务器密钥信息区域添加房间密钥信息
+                    const roomKeyInfo = serverKeyInfo.querySelector('.room-key-info') || document.createElement('div');
+                    roomKeyInfo.className = 'room-key-info';
+                    roomKeyInfo.innerHTML = `
+                        <div class="key-section">
+                            <h3>🏠 房间密钥信息</h3>
+                            <div class="key-item">
+                                <span class="key-label">房间ID:</span>
+                                <span class="key-value">${this.currentRoom.id || 'N/A'}</span>
+                            </div>
+                            <div class="key-item">
+                                <span class="key-label">基础值 S_i:</span>
+                                <span class="key-value">${this.formatKey(this.currentRoom.si)}</span>
+                            </div>
+                            <div class="key-item">
+                                <span class="key-label">动态因子:</span>
+                                <span class="key-value">${this.formatKey(this.currentRoom.froom)}</span>
+                            </div>
+                            <div class="key-item">
+                                <span class="key-label">组密钥 GK:</span>
+                                <span class="key-value">${this.formatKey(this.currentRoom.groupKey)}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (!serverKeyInfo.querySelector('.room-key-info')) {
+                        serverKeyInfo.appendChild(roomKeyInfo);
+                    }
+                }
+            }
+
+            // 请求房间密钥
+            requestRoomKeys() {
+                if (!this.isConnected) {
+                    this.addLog('error', '❌ 请先连接服务器');
+                    return;
+                }
+
+                const data = {
+                    type: 'request_room_keys',
+                    roomId: this.currentRoom?.id || 'default'
+                };
+
+                this.sendToServer(data);
+                this.addLog('system', `🔑 请求房间密钥: ${this.currentRoom?.id || 'default'}`);
+            }
+
+            generateClientKeys() {
+                if (!this.isConnected || !this.serverPublicKey) {
+                    this.addLog('error', '❌ 请先连接到服务器并接收服务器公钥');
+                    return;
+                }
+
+                try {
+                    this.addLog('system', '🔑 正在生成客户端SM2密钥对...');
+                    
+                    // 生成SM2密钥对
+                    const keyPair = sm2.generateKeyPair();
+                    this.clientKeyPair = {
+                        publicKey: keyPair.publicKey,
+                        privateKey: keyPair.privateKey,
+                        algorithm: 'SM2',
+                        curve: 'sm2p256v1'
+                    };
+
+                    // 发送客户端密钥到服务器
+                    this.sendToServer({
+                        type: 'client_keys_ready',
+                        publicKey: this.clientKeyPair.publicKey,
+                        privateKey: this.clientKeyPair.privateKey
+                    });
+
+                    this.addLog('system', '✅ 客户端密钥对生成成功!');
+                    this.updateUI();
+
+                } catch (error) {
+                    this.addLog('error', `❌ 密钥生成失败: ${error.message}`);
+                }
+            }
+
+            sendToServer(message) {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify(message));
+                } else {
+                    this.addLog('error', '❌ 连接已断开，无法发送消息');
+                }
+            }
+
+            updateUI() {
+                // 更新连接状态
+                const status = document.getElementById('connectionStatus');
+                const state = document.getElementById('connectionState');
+                const userId = document.getElementById('userId');
+                
+                if (this.isConnected) {
+                    status.textContent = '已连接';
+                    status.className = 'status connected';
+                    state.textContent = '已连接';
+                    userId.textContent = this.userId || '-';
+                } else {
+                    status.textContent = '未连接';
+                    status.className = 'status disconnected';
+                    state.textContent = '未连接';
+                    userId.textContent = '-';
+                }
+
+                // 更新按钮状态
+                document.getElementById('connectBtn').disabled = this.isConnected;
+                document.getElementById('disconnectBtn').disabled = !this.isConnected;
+                
+                const generateKeysBtn = document.getElementById('generateKeysBtn');
+                generateKeysBtn.disabled = !this.isConnected || !this.serverPublicKey;
+                
+                // 添加调试日志
+                console.log('UI更新状态:', {
+                    isConnected: this.isConnected,
+                    hasServerPublicKey: !!this.serverPublicKey,
+                    buttonEnabled: !generateKeysBtn.disabled
+                });
+
+                // 更新服务器密钥信息
+                if (this.serverPublicKey) {
+                    document.getElementById('serverKeyStatus').textContent = '已接收';
+                    document.getElementById('serverKeyStatus').className = 'success';
+                    document.getElementById('serverKeyAlgorithm').textContent = this.serverPublicKey.algorithm;
+                    document.getElementById('serverKeyCurve').textContent = this.serverPublicKey.curve;
+                    document.getElementById('serverKeyValue').textContent = this.formatKey(this.serverPublicKey.publicKey);
+                } else {
+                    document.getElementById('serverKeyStatus').textContent = '未接收';
+                    document.getElementById('serverKeyStatus').className = 'error';
+                    document.getElementById('serverKeyAlgorithm').textContent = '-';
+                    document.getElementById('serverKeyCurve').textContent = '-';
+                    document.getElementById('serverKeyValue').textContent = '等待接收...';
+                }
+
+                // 更新客户端密钥信息
+                if (this.clientKeyPair) {
+                    document.getElementById('clientKeyStatus').textContent = '已生成';
+                    document.getElementById('clientKeyStatus').className = 'success';
+                    document.getElementById('clientPublicKey').textContent = this.formatKey(this.clientKeyPair.publicKey);
+                    document.getElementById('clientPrivateKey').textContent = this.formatKey(this.clientKeyPair.privateKey);
+                } else {
+                    document.getElementById('clientKeyStatus').textContent = '未生成';
+                    document.getElementById('clientKeyStatus').className = 'error';
+                    document.getElementById('clientPublicKey').textContent = '未生成';
+                    document.getElementById('clientPrivateKey').textContent = '未生成';
+                }
+            }
+
+            formatKey(key) {
+                if (!key) return '';
+                if (key.length <= 20) return key;
+                return key.substring(0, 20) + '...' + key.substring(key.length - 20);
+            }
+
+            addLog(type, message) {
+                const chatContainer = document.getElementById('chatMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${type}`;
+                messageDiv.innerHTML = message.replace(/\n/g, '<br>');
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            clearChat() {
+                const chatContainer = document.getElementById('chatMessages');
+                chatContainer.innerHTML = '<div class="message system">🗑️ 聊天记录已清空</div>';
+            }
+        }
+
+        // 初始化客户端
+        const client = new SM2KeyExchangeClient();
+    </script>
+</body>
+</html>
