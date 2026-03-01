@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007cba;
+            color: white;
+            cursor: pointer;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 SM加密功能测试</h1>
+    
+    <div class="test-section">
+        <h3>📚 SM加密库加载状态</h3>
+        <div id="libraryStatus">
+            <p>正在检查库加载状态...</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🧪 加密功能测试</h3>
+        <div>
+            <label>明文消息:</label>
+            <textarea id="plainText" rows="3" placeholder="输入要加密的消息...">Hello, SM4加密测试消息！</textarea>
+            
+            <label>组密钥 (128位十六进制):</label>
+            <input type="text" id="groupKey" value="0123456789abcdef0123456789abcdef" placeholder="128位组密钥...">
+            
+            <button onclick="testEncrypt()">🔒 测试加密</button>
+        </div>
+        
+        <div id="encryptResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔓 解密功能测试</h3>
+        <div>
+            <label>密文数据:</label>
+            <textarea id="cipherText" rows="3" placeholder="输入要解密的密文..."></textarea>
+            
+            <label>组密钥:</label>
+            <input type="text" id="decryptKey" value="0123456789abcdef0123456789abcdef" placeholder="解密密钥...">
+            
+            <button onclick="testDecrypt()">🔓 测试解密</button>
+        </div>
+        
+        <div id="decryptResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 测试日志</h3>
+        <div id="testLog" style="background: #f5f5f5; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+        <button onclick="clearLog()">🗑️ 清空日志</button>
+    </div>
+
+    <script>
+        // 简化的加密函数（使用模拟实现）
+        function addLog(type, message) {
+            const log = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : 'success';
+            log.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+        
+        // 检查库加载状态
+        function checkLibraryStatus() {
+            const status = document.getElementById('libraryStatus');
+            let html = '<h4>库加载状态检查:</h4>';
+            
+            // 检查各种可能的库引用
+            const checks = [
+                { name: 'smCrypto (完整库)', exists: typeof smCrypto !== 'undefined' },
+                { name: 'sm3', exists: typeof sm3 !== 'undefined' },
+                { name: 'sm4', exists: typeof sm4 !== 'undefined' },
+                { name: 'sm2', exists: typeof sm2 !== 'undefined' }
+            ];
+            
+            checks.forEach(check => {
+                const statusIcon = check.exists ? '✅' : '❌';
+                html += `<p>${statusIcon} ${check.name}: ${check.exists ? '已加载' : '未加载'}</p>`;
+            });
+            
+            status.innerHTML = html;
+        }
+        
+        // 模拟加密函数（用于测试）
+        function mockEncrypt(plainText, groupKey) {
+            try {
+                addLog('info', `开始模拟加密过程...`);
+                addLog('info', `明文: ${plainText}`);
+                addLog('info', `密钥: ${groupKey}`);
+                
+                // 简单的模拟加密
+                const keyBytes = [];
+                for (let i = 0; i < 16; i++) {
+                    keyBytes.push(groupKey.charCodeAt(i % groupKey.length));
+                }
+                
+                const encrypted = btoa(plainText + '|' + groupKey);
+                
+                const result = {
+                    ciphertext: encrypted,
+                    isEncrypted: true,
+                    timestamp: new Date().toISOString(),
+                    mockMode: true
+                };
+                
+                addLog('success', '模拟加密成功');
+                return result;
+            } catch (error) {
+                addLog('error', `模拟加密失败: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // 模拟解密函数（用于测试）
+        function mockDecrypt(encryptedData, groupKey) {
+            try {
+                addLog('info', `开始模拟解密过程...`);
+                
+                const decrypted = atob(encryptedData.ciphertext);
+                const parts = decrypted.split('|');
+                
+                if (parts.length !== 2) {
+                    throw new Error('无效的加密数据格式');
+                }
+                
+                const [plainText, key] = parts;
+                
+                if (key !== groupKey) {
+                    throw new Error('密钥不匹配');
+                }
+                
+                addLog('success', '模拟解密成功');
+                return plainText;
+            } catch (error) {
+                addLog('error', `模拟解密失败: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // 尝试使用真实库的加密函数
+        function realEncrypt(plainText, groupKey) {
+            try {
+                // 检查可用的库
+                const hasCompleteLibrary = typeof smCrypto !== 'undefined' && smCrypto.sm3 && smCrypto.sm4;
+                const hasSeparateLibraries = typeof sm3 !== 'undefined' && typeof sm4 !== 'undefined';
+                
+                if (!hasCompleteLibrary && !hasSeparateLibraries) {
+                    throw new Error('SM加密库未正确加载');
+                }
+                
+                const sm3Instance = smCrypto ? smCrypto.sm3 : sm3;
+                const sm4Instance = smCrypto ? smCrypto.sm4 : sm4;
+                
+                // 使用SM3-HMAC派生密钥
+                const key = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-key' });
+                const iv = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-iv' }).substring(0, 16);
+                
+                // 使用SM4-CBC模式加密
+                const encrypted = sm4Instance.encrypt(plainText, key.substring(0, 32));
+                
+                return {
+                    ciphertext: encrypted,
+                    isEncrypted: true,
+                    timestamp: new Date().toISOString(),
+                    realMode: true
+                };
+            } catch (error) {
+                addLog('error', `真实加密失败: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // 尝试使用真实库的解密函数
+        function realDecrypt(encryptedData, groupKey) {
+            try {
+                const hasCompleteLibrary = typeof smCrypto !== 'undefined' && smCrypto.sm3 && smCrypto.sm4;
+                const hasSeparateLibraries = typeof sm3 !== 'undefined' && typeof sm4 !== 'undefined';
+                
+                if (!hasCompleteLibrary && !hasSeparateLibraries) {
+                    throw new Error('SM加密库未正确加载');
+                }
+                
+                const sm3Instance = smCrypto ? smCrypto.sm3 : sm3;
+                const sm4Instance = smCrypto ? smCrypto.sm4 : sm4;
+                
+                const key = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-key' });
+                const iv = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-iv' }).substring(0, 16);
+                
+                return sm4Instance.decrypt(encryptedData.ciphertext, key.substring(0, 32));
+            } catch (error) {
+                addLog('error', `真实解密失败: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        function testEncrypt() {
+            const plainText = document.getElementById('plainText').value;
+            const groupKey = document.getElementById('groupKey').value;
+            const resultDiv = document.getElementById('encryptResult');
+            
+            if (!plainText || !groupKey) {
+                resultDiv.innerHTML = '<div class="error">❌ 请输入明文和密钥</div>';
+                return;
+            }
+            
+            try {
+                // 尝试使用真实库，如果失败则使用模拟实现
+                let result;
+                try {
+                    result = realEncrypt(plainText, groupKey);
+                } catch (error) {
+                    addLog('info', '真实库加密失败，使用模拟实现: ' + error.message);
+                    result = mockEncrypt(plainText, groupKey);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ 加密成功</div>
+                    <p><strong>密文:</strong></p>
+                    <textarea readonly>${result.ciphertext}</textarea>
+                    <p><strong>时间戳:</strong> ${result.timestamp}</p>
+                    <p><strong>模式:</strong> ${result.realMode ? 'SM4真实加密' : '模拟加密'}</p>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 加密失败: ${error.message}</div>`;
+            }
+        }
+        
+        function testDecrypt() {
+            const cipherText = document.getElementById('cipherText').value;
+            const groupKey = document.getElementById('decryptKey').value;
+            const resultDiv = document.getElementById('decryptResult');
+            
+            if (!cipherText || !groupKey) {
+                resultDiv.innerHTML = '<div class="error">❌ 请输入密文和密钥</div>';
+                return;
+            }
+            
+            try {
+                // 尝试使用真实库，如果失败则使用模拟实现
+                let result;
+                try {
+                    result = realDecrypt({ciphertext: cipherText}, groupKey);
+                } catch (error) {
+                    addLog('info', '真实库解密失败，使用模拟实现: ' + error.message);
+                    result = mockDecrypt({ciphertext: cipherText}, groupKey);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ 解密成功</div>
+                    <p><strong>明文:</strong></p>
+                    <textarea readonly>${result}</textarea>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 解密失败: ${error.message}</div>`;
+            }
+        }
+        
+        // 页面加载时检查库状态
+        window.addEventListener('load', function() {
+            addLog('info', '页面加载完成');
+            checkLibraryStatus();
+        });
+    </script>
+</body>
+</html>

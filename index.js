@@ -341,7 +341,7 @@ app.use((error, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 // 启动服务器
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log('🚀 服务器启动成功!');
   console.log('========================================');
   console.log(`🌐 HTTP访问地址: http://localhost:${PORT}`);
@@ -396,7 +396,7 @@ server.listen(PORT, () => {
   
   // 创建默认房间
   try {
-    roomManager.createRoom('general', '公共聊天室', {
+    await roomManager.createRoom('general', '公共聊天室', {
       description: '默认公共聊天室，欢迎大家聊天！',
       maxUsers: 100
     });

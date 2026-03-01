@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密库调试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 SM加密库调试页面</h1>
+    
+    <div class="debug-section">
+        <h3>📚 库加载状态检查</h3>
+        <div id="libraryStatus"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>🧪 加密功能测试</h3>
+        <button onclick="testAll()">🔄 运行所有测试</button>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>📋 控制台日志</h3>
+        <button onclick="clearConsole()">🗑️ 清空日志</button>
+        <div id="consoleLog" style="background: #000; color: #0f0; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        // 重写console.log来捕获输出
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addLog(message, type = 'log') {
+            const logDiv = document.getElementById('consoleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            let color = '#0f0';
+            
+            if (type === 'error') color = '#f00';
+            if (type === 'warn') color = '#ff0';
+            
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'log');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog('WARNING: ' + args.join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog('ERROR: ' + args.join(' '), 'error');
+        };
+        
+        function clearConsole() {
+            document.getElementById('consoleLog').innerHTML = '';
+        }
+        
+        // 检查库加载状态
+        function checkLibraryStatus() {
+            console.log('=== 开始库加载状态检查 ===');
+            
+            const checks = [
+                { name: 'smCrypto (完整库)', exists: typeof smCrypto !== 'undefined' },
+                { name: 'sm3', exists: typeof sm3 !== 'undefined' },
+                { name: 'sm4', exists: typeof sm4 !== 'undefined' },
+                { name: 'sm2', exists: typeof sm2 !== 'undefined' },
+                { name: 'window.smcrypto', exists: typeof window.smcrypto !== 'undefined' },
+                { name: 'window.SM3', exists: typeof window.SM3 !== 'undefined' },
+                { name: 'window.SM4', exists: typeof window.SM4 !== 'undefined' },
+                { name: 'window.SM2', exists: typeof window.SM2 !== 'undefined' }
+            ];
+            
+            let html = '<h4>库加载状态:</h4>';
+            
+            checks.forEach(check => {
+                const statusIcon = check.exists ? '✅' : '❌';
+                const className = check.exists ? 'success' : 'error';
+                html += `<p class="${className}">${statusIcon} ${check.name}: ${check.exists ? '已加载' : '未加载'}</p>`;
+                
+                // 如果库存在，显示更多详细信息
+                if (check.exists) {
+                    try {
+                        const obj = eval(check.name.split('.').pop());
+                        if (typeof obj === 'object' && obj !== null) {
+                            const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(obj)).filter(prop => prop !== 'constructor');
+                            html += `<p style="margin-left: 20px; font-size: 12px;">可用方法: ${methods.join(', ')}</p>`;
+                        }
+                    } catch (e) {
+                        html += `<p style="margin-left: 20px; font-size: 12px; color: orange;">无法检查方法: ${e.message}</p>`;
+                    }
+                }
+            });
+            
+            // 检查window对象中的所有相关属性
+            console.log('检查window对象...');
+            const windowKeys = Object.keys(window).filter(key => 
+                key.toLowerCase().includes('sm') || 
+                key.toLowerCase().includes('crypto') ||
+                key.toLowerCase().includes('encrypt')
+            );
+            
+            html += `<h4>window对象中的相关属性:</h4>`;
+            html += `<pre>${windowKeys.join(', ')}</pre>`;
+            
+            document.getElementById('libraryStatus').innerHTML = html;
+        }
+        
+        // 测试加密功能
+        function testAll() {
+            console.log('=== 开始加密功能测试 ===');
+            
+            const testResults = document.getElementById('testResults');
+            testResults.innerHTML = '<h4>测试结果:</h4>';
+            
+            // 测试1: 基础API可用性
+            testResults.innerHTML += '<h5>测试1: 基础API可用性</h5>';
+            
+            const hasCompleteLibrary = typeof smCrypto !== 'undefined' && smCrypto.sm3 && smCrypto.sm4;
+            const hasSeparateLibraries = typeof sm3 !== 'undefined' && typeof sm4 !== 'undefined';
+            
+            testResults.innerHTML += `<p>完整库 (smCrypto): ${hasCompleteLibrary ? '✅' : '❌'}</p>`;
+            testResults.innerHTML += `<p>分离库 (sm3+sm4): ${hasSeparateLibraries ? '✅' : '❌'}</p>`;
+            
+            if (!hasCompleteLibrary && !hasSeparateLibraries) {
+                testResults.innerHTML += '<p class="error">❌ 所有加密库均未加载，无法进行加密测试</p>';
+                return;
+            }
+            
+            // 测试2: 实际加密测试
+            testResults.innerHTML += '<h5>测试2: 实际加密测试</h5>';
+            
+            const plainText = 'Hello, SM4加密测试！';
+            const groupKey = '0123456789abcdef0123456789abcdef';
+            
+            try {
+                // 使用不同的API调用方式
+                const sm3Instance = hasCompleteLibrary ? smCrypto.sm3 : sm3;
+                const sm4Instance = hasCompleteLibrary ? smCrypto.sm4 : sm4;
+                
+                console.log('sm3Instance:', sm3Instance);
+                console.log('sm4Instance:', sm4Instance);
+                
+                // 测试HMAC
+                const hmacResult = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-key' });
+                testResults.innerHTML += `<p>HMAC测试: ✅ 成功</p>`;
+                console.log('HMAC结果:', hmacResult);
+                
+                // 测试加密
+                const iv = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-iv' }).substring(0, 16);
+                console.log('生成的IV:', iv);
+                
+                const encrypted = sm4Instance.encrypt(plainText, groupKey.substring(0, 32));
+                testResults.innerHTML += `<p>SM4加密测试: ✅ 成功</p>`;
+                console.log('加密结果:', encrypted);
+                
+                // 测试解密
+                const decrypted = sm4Instance.decrypt(encrypted, groupKey.substring(0, 32), iv);
+                testResults.innerHTML += `<p>SM4解密测试: ✅ 成功</p>`;
+                console.log('解密结果:', decrypted);
+                
+                if (decrypted === plainText) {
+                    testResults.innerHTML += '<p class="success">✅ 加解密一致性测试: ✅ 通过</p>';
+                } else {
+                    testResults.innerHTML += '<p class="error">❌ 加解密一致性测试: ❌ 失败</p>';
+                }
+                
+            } catch (error) {
+                console.error('加密测试失败:', error);
+                testResults.innerHTML += `<p class="error">❌ 加密测试失败: ${error.message}</p>`;
+            }
+            
+            // 测试3: 兼容性测试
+            testResults.innerHTML += '<h5>测试3: 兼容性测试</h5>';
+            
+            try {
+                // 检查不同的API调用方式
+                const testCases = [
+                    () => typeof sm3 !== 'undefined' && sm3('key', { mode: 'hmac', key: 'data' }),
+                    () => typeof smCrypto !== 'undefined' && smCrypto.sm3('key', { mode: 'hmac', key: 'data' }),
+                    () => typeof window.sm3 !== 'undefined' && window.sm3('key', { mode: 'hmac', key: 'data' }),
+                    () => typeof window.SM3 !== 'undefined' && window.SM3('key', { mode: 'hmac', key: 'data' })
+                ];
+                
+                testCases.forEach((testCase, index) => {
+                    try {
+                        testCase();
+                        testResults.innerHTML += `<p>兼容性测试${index + 1}: ✅ 通过</p>`;
+                    } catch (e) {
+                        testResults.innerHTML += `<p>兼容性测试${index + 1}: ❌ 失败 (${e.message})</p>`;
+                    }
+                });
+                
+            } catch (error) {
+                console.error('兼容性测试失败:', error);
+            }
+        }
+        
+        // 页面加载时自动检查
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，开始调试...');
+            checkLibraryStatus();
+            
+            // 5秒后自动运行测试
+            setTimeout(testAll, 1000);
+        });
+    </script>
+</body>
+</html>

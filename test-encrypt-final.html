@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SM加密功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #17a2b8; }
+        #output {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 SM加密功能最终测试</h1>
+        
+        <div class="section">
+            <h2>1. 加密库加载状态检查</h2>
+            <div id="libraryStatus"></div>
+            <button onclick="checkLibraryStatus()">🔍 检查加密库状态</button>
+        </div>
+
+        <div class="section">
+            <h2>2. 加密测试</h2>
+            <label>明文消息:</label>
+            <textarea id="plainText" placeholder="输入要加密的消息...">Hello, 这是一条测试消息！</textarea>
+            
+            <label>组密钥:</label>
+            <input type="text" id="groupKey" value="test-group-key-12345" placeholder="输入组密钥...">
+            
+            <button onclick="testEncryption()">🔒 执行加密测试</button>
+            <button onclick="testDecryption()">🔓 执行解密测试</button>
+        </div>
+
+        <div class="section">
+            <h2>3. 测试结果</h2>
+            <div id="results"></div>
+        </div>
+
+        <div class="section">
+            <h2>4. 控制台日志</h2>
+            <div id="consoleOutput"></div>
+            <button onclick="clearConsole()">🗑️ 清空日志</button>
+        </div>
+    </div>
+
+    <!-- 引入SM2、SM3、SM4加密库（使用本地文件） -->
+    <script src="node_modules/sm-crypto/dist/sm2.js"></script>
+    <script src="node_modules/sm-crypto/dist/sm3.js"></script>
+    <script src="node_modules/sm-crypto/dist/sm4.js"></script>
+
+    <script>
+        // 存储测试结果
+        let testResults = {
+            lastEncrypted: null,
+            lastGroupKey: null
+        };
+
+        // 重写console.log以便在页面中显示
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole('log', args.join(' '));
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole('error', 'ERROR: ' + args.join(' '));
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToConsole('warn', 'WARN: ' + args.join(' '));
+        };
+
+        // 添加到控制台输出
+        function addToConsole(type, message) {
+            const consoleOutput = document.getElementById('consoleOutput');
+            const div = document.createElement('div');
+            div.className = `console-${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        // 清空控制台
+        function clearConsole() {
+            document.getElementById('consoleOutput').innerHTML = '';
+        }
+
+        // 检查加密库状态
+        function checkLibraryStatus() {
+            console.log('=== 开始检查加密库状态 ===');
+            
+            const statusDiv = document.getElementById('libraryStatus');
+            let html = '';
+            
+            const libraryStatus = {
+                sm2: {
+                    available: typeof sm2 !== 'undefined',
+                    name: 'sm2',
+                    description: 'SM2非对称加密算法'
+                },
+                sm3: {
+                    available: typeof sm3 !== 'undefined',
+                    name: 'sm3',
+                    description: 'SM3哈希算法'
+                },
+                sm4: {
+                    available: typeof sm4 !== 'undefined',
+                    name: 'sm4',
+                    description: 'SM4对称加密算法'
+                }
+            };
+
+            // 检查window对象
+            const windowKeys = Object.keys(window).filter(key => 
+                key.toLowerCase().includes('sm') && key !== 'smCrypto'
+            );
+            console.log('window对象中SM相关属性:', windowKeys);
+
+            for (const [key, info] of Object.entries(libraryStatus)) {
+                const status = info.available ? '✅' : '❌';
+                const className = info.available ? 'success' : 'error';
+                html += `<div class="status ${className}">${status} ${info.name}: ${info.description}</div>`;
+                
+                if (info.available) {
+                    console.log(`✅ ${info.name} 已加载`);
+                    // 测试具体功能
+                    if (info.name === 'sm3') {
+                        console.log('✅ sm3 函数格式可用');
+                    }
+                    if (info.name === 'sm4' && (sm4.encrypt || sm4Instance.encrypt)) {
+                        console.log('✅ sm4.encrypt 方法可用');
+                    }
+                } else {
+                    console.error(`❌ ${info.name} 未加载`);
+                }
+            }
+
+            statusDiv.innerHTML = html;
+            
+            // 检查是否有可用实例
+            const hasSM3 = typeof sm3 !== 'undefined';
+            const hasSM4 = typeof sm4 !== 'undefined';
+            
+            if (hasSM3 && hasSM4) {
+                console.log('✅ sm3和sm4独立库都可用');
+                showResult('加密库加载成功', 'success');
+            } else {
+                console.error('❌ SM加密库未完全加载');
+                showResult('加密库加载失败', 'error');
+            }
+        }
+
+        // 显示结果
+        function showResult(message, type) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        // 测试加密功能
+        async function testEncryption() {
+            clearConsole();
+            console.log('=== 开始加密测试 ===');
+            
+            const plainText = document.getElementById('plainText').value;
+            const groupKey = document.getElementById('groupKey').value;
+            
+            if (!plainText || !groupKey) {
+                showResult('请输入明文和组密钥', 'error');
+                return;
+            }
+
+            try {
+                // 检查库可用性
+                let sm3Instance, sm4Instance;
+                
+                if (typeof sm3 !== 'undefined' && typeof sm4 !== 'undefined') {
+                    sm3Instance = sm3;
+                    sm4Instance = sm4;
+                    console.log('使用sm3/sm4实例');
+                } else {
+                    throw new Error('SM加密库未正确加载');
+                }
+
+                // 测试sm3函数格式
+                console.log('测试sm3函数格式功能...');
+                const key = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-key' });
+                const iv = sm3Instance(groupKey, { mode: 'hmac', key: 'sm4-iv' }).substring(0, 16);
+                console.log('密钥派生成功，密钥长度:', key.length, 'IV长度:', iv.length);
+
+                // 测试sm4.encrypt
+                console.log('测试sm4.encrypt功能...');
+                const encrypted = sm4Instance.encrypt(plainText, key.substring(0, 32));
+                console.log('加密成功，密文长度:', encrypted.length);
+
+                // 保存测试结果
+                testResults.lastEncrypted = {
+                    ciphertext: encrypted,
+                    isEncrypted: true,
+                    timestamp: new Date().toISOString()
+                };
+                testResults.lastGroupKey = groupKey;
+
+                showResult('✅ 加密测试成功！', 'success');
+                console.log('✅ 加密测试完成');
+                
+            } catch (error) {
+                console.error('加密测试失败:', error);
+                showResult('❌ 加密测试失败: ' + error.message, 'error');
+            }
+        }
+
+        // 测试解密功能
+        async function testDecryption() {
+            console.log('=== 开始解密测试 ===');
+            
+            if (!testResults.lastEncrypted || !testResults.lastGroupKey) {
+                showResult('请先执行加密测试', 'error');
+                return;
+            }
+
+            try {
+                // 获取实例
+                let sm3Instance, sm4Instance;
+                
+                if (typeof sm3 !== 'undefined' && typeof sm4 !== 'undefined') {
+                    sm3Instance = sm3;
+                    sm4Instance = sm4;
+                    console.log('使用sm3/sm4实例');
+                } else {
+                    throw new Error('SM加密库未正确加载');
+                }
+
+                // 重新派生密钥
+                const key = sm3Instance(testResults.lastGroupKey, { mode: 'hmac', key: 'sm4-key' });
+                const iv = sm3Instance(testResults.lastGroupKey, { mode: 'hmac', key: 'sm4-iv' }).substring(0, 16);
+                console.log('密钥重新派生成功');
+
+                // 解密
+                const decrypted = sm4Instance.decrypt(testResults.lastEncrypted.ciphertext, key.substring(0, 32));
+                console.log('解密成功，明文长度:', decrypted.length);
+
+                showResult('✅ 解密测试成功！明文: ' + decrypted, 'success');
+                console.log('✅ 解密测试完成');
+                
+            } catch (error) {
+                console.error('解密测试失败:', error);
+                showResult('❌ 解密测试失败: ' + error.message, 'error');
+            }
+        }
+
+        // 页面加载完成后自动检查
+        window.addEventListener('load', function() {
+            console.log('=== 页面加载完成，开始自动检查 ===');
+            checkLibraryStatus();
+        });
+    </script>
+</body>
+</html>

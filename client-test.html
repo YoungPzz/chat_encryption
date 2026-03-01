@@ -489,12 +489,16 @@
                 
                 try {
                     // 解密房间密钥数据
-                    const decryptedData = this.decryptRoomKeyData(data.encryptedData, this.clientKeyPair?.privateKey);
+                    const decryptedData = this.decryptRoomKeyData(data.encryptedKeyInfo, this.clientKeyPair?.privateKey);
                     if (decryptedData) {
                         // 保存房间基础值和动态因子
                         this.currentRoom = this.currentRoom || {};
                         this.currentRoom.si = decryptedData.si;
                         this.currentRoom.froom = decryptedData.froom;
+                        
+                        // 保存SM4密钥和Shamir分片信息
+                        this.currentRoom.sm4Key = decryptedData.sm4Key;
+                        this.currentRoom.shamirInfo = decryptedData.shamirInfo;
                         
                         // 计算组密钥
                         const groupKey = this.calculateGroupKey(decryptedData.si, decryptedData.froom);
@@ -504,6 +508,8 @@
                         this.addLog('key-info', `🔑 房间基础值 S_i: ${this.formatKey(decryptedData.si)}`);
                         this.addLog('key-info', `🔄 房间动态因子 F_room: ${this.formatKey(decryptedData.froom)}`);
                         this.addLog('key-info', `🔐 组密钥 GK: ${this.formatKey(groupKey)}`);
+                        this.addLog('key-info', `🔒 SM4密钥: ${this.formatKey(decryptedData.sm4Key)}`);
+                        this.addLog('key-info', `📊 Shamir分片信息: 共${decryptedData.shamirInfo.shareCount}份，阈值${decryptedData.shamirInfo.threshold}`);
                         
                         // 更新UI显示
                         this.updateRoomKeyDisplay();
@@ -564,7 +570,7 @@
                 const serverKeyInfo = document.getElementById('serverKeyInfo');
                 const clientKeyInfo = document.getElementById('clientKeyInfo');
                 
-                if (serverKeyInfo && clientKeyInfo && this.currentRoom && this.currentRoom.groupKey) {
+                if (serverKeyInfo && clientKeyInfo && this.currentRoom) {
                     // 在服务器密钥信息区域添加房间密钥信息
                     const roomKeyInfo = serverKeyInfo.querySelector('.room-key-info') || document.createElement('div');
                     roomKeyInfo.className = 'room-key-info';
@@ -575,18 +581,26 @@
                                 <span class="key-label">房间ID:</span>
                                 <span class="key-value">${this.currentRoom.id || 'N/A'}</span>
                             </div>
-                            <div class="key-item">
+                            ${this.currentRoom.si ? `<div class="key-item">
                                 <span class="key-label">基础值 S_i:</span>
                                 <span class="key-value">${this.formatKey(this.currentRoom.si)}</span>
-                            </div>
-                            <div class="key-item">
+                            </div>` : ''}
+                            ${this.currentRoom.froom ? `<div class="key-item">
                                 <span class="key-label">动态因子:</span>
                                 <span class="key-value">${this.formatKey(this.currentRoom.froom)}</span>
-                            </div>
-                            <div class="key-item">
+                            </div>` : ''}
+                            ${this.currentRoom.groupKey ? `<div class="key-item">
                                 <span class="key-label">组密钥 GK:</span>
                                 <span class="key-value">${this.formatKey(this.currentRoom.groupKey)}</span>
-                            </div>
+                            </div>` : ''}
+                            ${this.currentRoom.sm4Key ? `<div class="key-item">
+                                <span class="key-label">SM4密钥:</span>
+                                <span class="key-value">${this.formatKey(this.currentRoom.sm4Key)}</span>
+                            </div>` : ''}
+                            ${this.currentRoom.shamirInfo ? `<div class="key-item">
+                                <span class="key-label">Shamir分片:</span>
+                                <span class="key-value">${this.currentRoom.shamirInfo.shareCount}份，阈值${this.currentRoom.shamirInfo.threshold}</span>
+                            </div>` : ''}
                         </div>
                     `;
                     

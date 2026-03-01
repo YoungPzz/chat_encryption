@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>固定高度测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .message-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            height: 400px; /* 固定消息区域的总高度 */
+            border: 2px solid #4f46e5;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .messages {
+            height: 300px; /* 固定消息显示区域的高度 */
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-bottom: 15px;
+            flex-shrink: 0; /* 防止被压缩 */
+            border: 2px solid #10b981;
+        }
+
+        .message-item {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 5px;
+            line-height: 1.4;
+            background: #374151;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn:hover {
+            background: #4338ca;
+        }
+
+        .test-controls {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #dbeafe;
+            border-radius: 5px;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 固定高度聊天界面测试</h1>
+        
+        <div class="message-area">
+            <div class="messages" id="messages">
+                <div class="message-item system">
+                    <div class="message-content">欢迎使用固定高度的聊天界面测试！</div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="输入测试消息...">
+                <button class="btn" onclick="addMessage()">发送消息</button>
+                <button class="btn" onclick="addManyMessages()">添加多条消息</button>
+                <button class="btn" onclick="clearMessages()">清空</button>
+            </div>
+        </div>
+
+        <div class="test-controls">
+            <h3>🎯 测试功能</h3>
+            <p><strong>测试目的：</strong>验证聊天界面具有固定高度，不会被消息内容撑开</p>
+            <p><strong>界面规格：</strong></p>
+            <ul>
+                <li>消息区域总高度：400px</li>
+                <li>消息显示区域高度：300px</li>
+                <li>输入区域高度：约100px</li>
+                <li>支持垂直滚动：✅</li>
+            </ul>
+            
+            <div class="info">
+                <h4>📝 测试说明</h4>
+                <p>✅ <strong>固定高度：</strong>无论添加多少消息，界面高度都保持固定</p>
+                <p>✅ <strong>自动滚动：</strong>消息过多时显示滚动条</p>
+                <p>✅ <strong>输入区域固定：</strong>输入框和按钮始终在底部</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let messageCount = 1;
+
+        function addMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                const messagesDiv = document.getElementById('messages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message-item';
+                messageDiv.innerHTML = `<div class="message-content">[${new Date().toLocaleTimeString()}] ${message}</div>`;
+                
+                messagesDiv.appendChild(messageDiv);
+                
+                // 自动滚动到底部
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                
+                input.value = '';
+            }
+        }
+
+        function addManyMessages() {
+            const messages = [
+                '这是一条测试消息',
+                '验证固定高度是否生效',
+                '消息应该自动向下排列',
+                '超过高度时显示滚动条',
+                '输入区域保持在底部',
+                '界面不会被撑开',
+                '继续测试消息数量...',
+                '消息10：检查滚动功能',
+                '消息11：测试完成！'
+            ];
+
+            const messagesDiv = document.getElementById('messages');
+            
+            messages.forEach((msg, index) => {
+                setTimeout(() => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message-item';
+                    messageDiv.innerHTML = `<div class="message-content">[${new Date().toLocaleTimeString()}] 消息 ${messageCount++}: ${msg}</div>`;
+                    
+                    messagesDiv.appendChild(messageDiv);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }, index * 100);
+            });
+        }
+
+        function clearMessages() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = '<div class="message-item system"><div class="message-content">消息已清空</div></div>';
+        }
+
+        // 回车键发送消息
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addMessage();
+            }
+        });
+    </script>
+</body>
+</html>

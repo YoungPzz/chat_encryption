@@ -10,6 +10,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "gm-crypto": "^0.1.12",
+    "shamir-secret-sharing": "^0.0.4",
     "sm-crypto": "^0.3.13",
     "ws": "^8.14.2"
   },

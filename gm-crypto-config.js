@@ -41,7 +41,7 @@ try {
 try {
     // GM-Crypto库的SM4密钥生成方式需要修正
     const testKey = '0123456789abcdeffedcba9876543210'; // 手动生成128位密钥
-    const encrypted = SM4.encrypt('test', testKey, { mode: 'cbc', iv: '00000000000000000000000000000000' });
+    const encrypted = SM4.encrypt('test', testKey);
     console.log('✅ SM4算法加载成功 - 加密解密正常');
 } catch (error) {
     console.error('❌ SM4算法加载失败:', error.message);

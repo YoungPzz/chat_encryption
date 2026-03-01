@@ -87,11 +87,11 @@ const plaintext = '这是需要加密的敏感数据内容';
 console.log('\n待加密明文:', plaintext);
 
 // SM4加密
-const encryptedWithSM4 = SM4.encrypt(plaintext, sm4Key, { mode: 'cbc', iv: '00000000000000000000000000000000', output: 'hex' });
+const encryptedWithSM4 = SM4.encrypt(plaintext, sm4Key);
 console.log('SM4加密结果 (Hex):', encryptedWithSM4);
 
 // SM4解密
-const decryptedWithSM4 = SM4.decrypt(encryptedWithSM4, sm4Key, { mode: 'cbc', iv: '00000000000000000000000000000000', input: 'hex' });
+const decryptedWithSM4 = SM4.decrypt(encryptedWithSM4, sm4Key);
 console.log('SM4解密结果:', decryptedWithSM4);
 
 // 验证解密结果

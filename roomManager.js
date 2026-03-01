@@ -1,4 +1,9 @@
 // 房间管理模块
+const SM2KeyManager = require('./sm2KeyManager');
+const ShamirKeySharingManager = require('./shamirKeySharing');
+// 不再需要创建实例，直接使用静态方法
+const crypto = require('crypto');
+
 class RoomManager {
   constructor(sm2KeyManager) {
     this.rooms = new Map(); // 房间ID -> 房间信息
@@ -13,13 +18,13 @@ class RoomManager {
    * @param {Object} options - 房间选项
    * @returns {Object} 房间信息
    */
-  createRoom(roomId, roomName, options = {}) {
+  async createRoom(roomId, roomName, options = {}) {
     if (this.rooms.has(roomId)) {
       throw new Error(`房间 ${roomId} 已存在`);
     }
 
-    // 生成房间级基础密钥K_room和房间动态因子F_room
-    const roomKeys = this.generateRoomKeys(roomId);
+    // 生成SM4密钥
+    const roomKeys = await this.generateRoomKeys(roomId);
 
     const room = {
       id: roomId,
@@ -31,17 +36,20 @@ class RoomManager {
       description: options.description || '',
       messages: [], // 最近消息历史
       // 房间密钥管理
-      baseKey: roomKeys.baseKey, // 房间级基础密钥K_room
-      dynamicFactor: roomKeys.dynamicFactor, // 房间动态因子F_room
+      sm4Key: roomKeys.sm4Key, // SM4房间加密密钥
       keyVersion: 1, // 密钥版本
-      keyCreatedAt: new Date().toISOString()
+      keyCreatedAt: new Date().toISOString(),
+      // Shamir密钥分片信息
+      shamirShares: roomKeys.shares, // 序列化后的Shamir分片
+      shareCount: roomKeys.shareCount,     // 分片总数
+      threshold: roomKeys.threshold         // 恢复阈值
     };
 
     this.rooms.set(roomId, room);
     console.log(`房间创建成功: ${roomName} (${roomId})`);
     console.log(`🔐 房间密钥初始化完成`);
-    console.log(`   K_room预览: ${roomKeys.baseKey.substring(0, 16)}...`);
-    console.log(`   F_room: ${roomKeys.dynamicFactor}`);
+    console.log(`   SM4密钥预览: ${roomKeys.sm4Key.substring(0, 16)}...`);
+    console.log(`   Shamir分片: ${roomKeys.shareCount}份 (阈值: ${roomKeys.threshold})`);
     return room;
   }
 
@@ -290,26 +298,31 @@ class RoomManager {
 
   /**
    * 生成房间级基础密钥K_room和房间动态因子F_room
+   * 同时使用Shamir分片技术将SM4密钥分为5份，阈值设为3
    * @param {string} roomId - 房间ID
    * @returns {Object} 房间密钥信息
    */
-  generateRoomKeys(roomId) {
+  async generateRoomKeys(roomId) {
     try {
-      // 生成房间级基础密钥K_room（128位SM4密钥）
-      const baseKeyHex = this.sm2KeyManager.generateRoomBaseKey(roomId);
+      // 生成一个新的16字节随机SM4密钥
+      const sm4Key = crypto.randomBytes(16);
+      const sm4KeyHex = sm4Key.toString('hex');
 
-      // 生成房间动态因子F_room（房间ID + 时间戳）
-      const timestamp = Date.now();
-      const dynamicFactor = `${roomId}_${timestamp}`;
+      // 使用Shamir分片技术将SM4密钥分为5份，阈值设为3 - 使用await处理异步操作
+      const shares = await ShamirKeySharingManager.splitKey(sm4Key, 5, 3);
+      
+      // 序列化分片以便存储
+      const serializedShares = ShamirKeySharingManager.serializeShares(shares);
 
       console.log(`🔐 为房间 ${roomId} 生成密钥:`);
-      console.log(`   K_room: ${baseKeyHex.substring(0, 16)}...`);
-      console.log(`   F_room: ${dynamicFactor}`);
+      console.log(`   SM4密钥: ${sm4KeyHex.substring(0, 16)}...`);
+      console.log(`   已生成${shares.length}个Shamir分片，阈值为3`);
 
       return {
-        baseKey: baseKeyHex,
-        dynamicFactor: dynamicFactor,
-        timestamp: timestamp
+        sm4Key: sm4KeyHex,           // SM4加密密钥
+        shares: serializedShares,    // Shamir分片
+        shareCount: shares.length,   // 分片数量
+        threshold: 3                 // 恢复阈值
       };
     } catch (error) {
       console.error(`生成房间 ${roomId} 密钥失败:`, error.message);
@@ -321,7 +334,7 @@ class RoomManager {
    * 为用户派生房间基础值S_i
    * @param {string} roomId - 房间ID
    * @param {string} userId - 用户ID
-   * @returns {string} 用户房间基础值
+   * @returns {string} 房间ID哈希值 + S_i值（拼接后的hex格式）
    */
   deriveUserRoomBaseValue(roomId, userId) {
     try {
@@ -330,14 +343,16 @@ class RoomManager {
         throw new Error(`房间 ${roomId} 不存在`);
       }
 
-      // 调用SM2KeyManager的派生方法
+      // 调用SM2KeyManager的派生方法（现在需要3个参数）
       const baseValue = this.sm2KeyManager.deriveUserRoomBaseValue(
         room.baseKey, 
+        roomId,
         userId
       );
 
       console.log(`🔑 为用户 ${userId} 在房间 ${roomId} 派生房间基础值`);
       console.log(`   S_i预览: ${baseValue.substring(0, 16)}...`);
+      console.log(`   总长度: ${baseValue.length} 字符`);
       
       return baseValue;
     } catch (error) {
@@ -360,19 +375,28 @@ class RoomManager {
         throw new Error(`房间 ${roomId} 不存在`);
       }
 
-      // 派生用户的房间基础值S_i
-      const userBaseValue = this.deriveUserRoomBaseValue(roomId, userId);
+      // 为用户分配一个Shamir分片（使用用户加入房间的顺序作为索引）
+      const usersArray = Array.from(room.users);
+      const userIndex = usersArray.indexOf(userId);
+      const shareIndex = userIndex % room.shamirShares.length;
+      const assignedShare = room.shamirShares[shareIndex];
+      
+      console.log(`🔢 用户 ${userId} 是第 ${userIndex + 1} 个进入房间的，分配分片索引 ${shareIndex + 1}`);
 
       // 打包房间密钥信息
       const keyInfo = {
         roomId: roomId,
         userId: userId,
-        baseValue: userBaseValue,
-        dynamicFactor: room.dynamicFactor,
-        baseKeyVersion: room.keyVersion,
+        keyVersion: room.keyVersion,
+        shamirShare: assignedShare,  // 发送Shamir分片而不是完整SM4密钥
+        shamirInfo: {
+          shareCount: room.shareCount,
+          threshold: room.threshold,
+          assignedShareIndex: assignedShare.index
+        },
         timestamp: Date.now()
       };
-
+      console.log(`🔑 打包房间密钥信息:`, { ...keyInfo, shamirShare: { index: keyInfo.shamirShare.index, sharePreview: keyInfo.shamirShare.share.substring(0, 16) + '...' } });
       // 调用SM2KeyManager加密
       const encrypted = this.sm2KeyManager.packageRoomKeyInfo(
         keyInfo,
@@ -395,20 +419,86 @@ class RoomManager {
    * @returns {Object|null} 房间密钥信息
    */
   getRoomKeyInfo(roomId) {
-    const room = this.rooms.get(roomId);
-    if (!room) {
-      return null;
-    }
+    try {
+      const room = this.rooms.get(roomId);
+      if (!room) {
+        throw new Error(`房间 ${roomId} 不存在`);
+      }
 
-    return {
-      roomId: roomId,
-      baseKeyPreview: room.baseKey.substring(0, 16) + '...',
-      dynamicFactor: room.dynamicFactor,
-      keyVersion: room.keyVersion,
-      keyCreatedAt: room.keyCreatedAt,
-      hasBaseKey: !!room.baseKey,
-      hasDynamicFactor: !!room.dynamicFactor
-    };
+      return {
+        roomId: room.id,
+        keyVersion: room.keyVersion,
+        keyCreatedAt: room.keyCreatedAt,
+        dynamicFactor: room.dynamicFactor,
+        userCount: room.users.size,
+        // 添加Shamir分片信息
+        shamirInfo: {
+          shareCount: room.shareCount,
+          threshold: room.threshold
+        }
+      };
+    } catch (error) {
+      console.error(`获取房间密钥信息失败:`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 获取房间的Shamir分片
+   * @param {string} roomId - 房间ID
+   * @returns {Array} 序列化后的Shamir分片数组
+   */
+  getRoomShamirShares(roomId) {
+    try {
+      const room = this.rooms.get(roomId);
+      if (!room) {
+        throw new Error(`房间 ${roomId} 不存在`);
+      }
+      
+      return room.shamirShares;
+    } catch (error) {
+      console.error(`获取房间Shamir分片失败:`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 验证分片数量是否满足恢复条件
+   * @param {string} roomId - 房间ID
+   * @param {number} availableShares - 可用分片数量
+   * @returns {boolean} 是否满足恢复条件
+   */
+  validateShareCount(roomId, availableShares) {
+    try {
+      const room = this.rooms.get(roomId);
+      if (!room) {
+        throw new Error(`房间 ${roomId} 不存在`);
+      }
+      
+      return ShamirKeySharingManager.validateShareCount(availableShares, room.threshold);
+    } catch (error) {
+      console.error(`验证分片数量失败:`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 获取房间的SM4密钥
+   * @param {string} roomId - 房间ID
+   * @returns {string} SM4密钥（十六进制格式）
+   */
+  getRoomSm4Key(roomId) {
+    try {
+      const room = this.rooms.get(roomId);
+      if (!room) {
+        throw new Error(`房间 ${roomId} 不存在`);
+      }
+      
+      return room.sm4Key;
+    } catch (error) {
+      console.error(`获取房间SM4密钥失败:`, error);
+      throw error;
+    }
   }
 }
 

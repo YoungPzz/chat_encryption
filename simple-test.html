@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>简单测试</title>
+</head>
+<body>
+    <h1>简单加密测试</h1>
+    <button onclick="testSimple()">测试加密</button>
+    <div id="result"></div>
+
+    <script src="node_modules/sm-crypto/dist/sm3.js"></script>
+    <script src="node_modules/sm-crypto/dist/sm4.js"></script>
+    
+    <script>
+        function testSimple() {
+            const result = document.getElementById('result');
+            
+            try {
+                console.log('开始测试...');
+                console.log('sm3:', typeof sm3);
+                console.log('sm4:', typeof sm4);
+                
+                if (typeof sm3 === 'undefined' || typeof sm4 === 'undefined') {
+                    throw new Error('sm3或sm4未加载');
+                }
+                
+                console.log('sm3对象:', sm3);
+                console.log('sm4对象:', sm4);
+                
+                // 测试sm3.hmac (使用正确的API格式)
+const key = sm3('test-message', { mode: 'hmac', key: 'test-key' });
+                console.log('HMAC结果:', key);
+                console.log('HMAC结果类型:', typeof key);
+                
+                // 测试sm4.encrypt - 使用正确的API格式
+const keyHex = key.substring(0, 32);
+const encrypted = sm4.encrypt('Hello World', keyHex);
+                console.log('加密结果:', encrypted);
+                
+                result.innerHTML = '<p style="color: green;">✅ 测试成功！sm3和sm4工作正常<br>HMAC: ' + key.substring(0, 20) + '...<br>加密: ' + encrypted.substring(0, 20) + '...</p>';
+                
+            } catch (error) {
+                console.error('测试失败:', error);
+                result.innerHTML = '<p style="color: red;">❌ 测试失败: ' + error.message + '</p>';
+            }
+        }
+        
+        // 页面加载后自动测试
+        window.onload = testSimple;
+    </script>
+</body>
+</html>

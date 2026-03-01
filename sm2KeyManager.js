@@ -621,13 +621,18 @@ class SM2KeyManager {
   /**
    * 派生房间用户基础值 S_i = KDF(K_room, 用户ID)
    * @param {string} roomBaseKey - 房间级基础密钥K_room
+   * @param {string} roomId - 房间ID
    * @param {string} userId - 用户ID
-   * @returns {string} 用户房间基础值S_i（hex格式）
+   * @returns {string} 房间ID哈希值 + S_i值（拼接后的hex格式）
    */
-  deriveUserRoomBaseValue(roomBaseKey, userId) {
+  deriveUserRoomBaseValue(roomBaseKey, roomId, userId) {
     try {
       if (!roomBaseKey) {
         throw new Error('房间级基础密钥不能为空');
+      }
+      
+      if (!roomId) {
+        throw new Error('房间ID不能为空');
       }
       
       if (!userId) {
@@ -637,11 +642,20 @@ class SM2KeyManager {
       // S_i = KDF(K_room, 用户ID)，派生32字节（256位）作为用户房间基础值
       const userBaseValue = this.sm3KDF(roomBaseKey, `user_${userId}_room_base`, 32);
       
+      // 对roomId进行SM3哈希
+      const roomIdHash = crypto.createHash('sm3').update(roomId, 'utf8').digest('hex');
+      
+      // 拼接房间ID哈希值和S_i值：RoomId_Hash + S_i
+      const combinedValue =  userBaseValue + roomIdHash;
+      
       console.log(`✅ 用户房间基础值S_i派生成功`);
+      console.log(`   房间ID: ${roomId}`);
+      console.log(`   房间ID哈希值预览: ${roomIdHash.substring(0, 16)}...`);
       console.log(`   用户ID: ${userId}`);
       console.log(`   S_i预览: ${userBaseValue.substring(0, 16)}...`);
+      console.log(`   拼接后总长度: ${combinedValue.length} 字符`);
       
-      return userBaseValue;
+      return combinedValue;
       
     } catch (error) {
       console.error('用户房间基础值S_i派生失败:', error);

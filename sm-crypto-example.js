@@ -122,8 +122,8 @@ console.log('解密结果验证:', isDecryptionCorrect);
 
 // ECB模式加密示例
 console.log('\n--- 不同加密模式示例 ---');
-const ecbEncrypted = sm4.encrypt(plaintext, sm4Key, 'pkcs#7'); // 使用pkcs#7填充
-const ecbDecrypted = sm4.decrypt(ecbEncrypted, sm4Key, 'pkcs#7');
+const ecbEncrypted = sm4.encrypt(plaintext, sm4Key); // 使用默认填充方式
+const ecbDecrypted = sm4.decrypt(ecbEncrypted, sm4Key);
 console.log('ECB模式加密结果:', ecbEncrypted.substring(0, 20) + '...');
 console.log('ECB模式解密验证:', plaintext === ecbDecrypted);
 
