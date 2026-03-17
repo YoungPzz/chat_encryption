@@ -135,6 +135,93 @@ app.delete('/api/rooms/:roomId', (req, res) => {
   }
 });
 
+// 检查房间是否存在API
+app.get('/api/rooms/:roomId/:userId/exists', (req, res) => {
+  try {
+    const { roomId, userId } = req.params;
+    const room = roomManager.getRoom(roomId);
+    
+    if (room) {
+      // 房间存在，为用户发送两个额外的分片
+      try {
+        // 获取原始房间对象
+        const originalRoom = roomManager.rooms.get(roomId);
+        if (originalRoom && originalRoom.shamirShares && originalRoom.shamirShares.length > 0) {
+          // 计算用户的第一个分片索引（与distributeSingleRoomShare中相同的逻辑）
+          const firstShareIndex = Math.abs(userId.hashCode() % originalRoom.shamirShares.length);
+          
+          // 选择两个不同的分片
+          const additionalShares = [];
+          for (let i = 0; i < originalRoom.shamirShares.length && additionalShares.length < 2; i++) {
+            if (i !== firstShareIndex) {
+              additionalShares.push(originalRoom.shamirShares[i]);
+            }
+          }
+          
+          console.log(`📤 为用户 ${userId} 发送房间 ${roomId} 的额外分片`);
+          console.log(`   第一个分片索引: ${firstShareIndex}`);
+          console.log(`   额外分片索引: ${additionalShares.map(s => s.index).join(', ')}`);
+          
+          // 通过WebSocket发送分片
+          wsHandler.sendToUser(userId, {
+            type: 'additional_shares_provided',
+            roomId: roomId,
+            shares: additionalShares,
+            message: '已发送额外分片',
+            timestamp: new Date().toISOString()
+          });
+          
+          // 返回房间存在的信息
+          res.json({
+            exists: true,
+            roomId: roomId,
+            userId: userId,
+            message: '房间存在，已通过WebSocket发送额外分片',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          // 房间存在但没有分片信息
+          res.json({
+            exists: true,
+            roomId: roomId,
+            userId: userId,
+            message: '房间存在，但没有分片信息',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (shareError) {
+        console.error('发送额外分片失败:', shareError);
+        // 即使发送分片失败，也要返回房间存在的信息
+        res.json({
+          exists: true,
+          roomId: roomId,
+          userId: userId,
+          message: '房间存在，但发送额外分片失败',
+          error: shareError.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      // 房间不存在
+      res.json({
+        exists: false,
+        roomId: roomId,
+        userId: userId,
+        message: '房间不存在',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      roomId: req.params.roomId,
+      userId: req.params.userId,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // ==================== 密钥管理API ====================
 
 // 获取基础密钥BK信息API
@@ -338,7 +425,7 @@ app.use((error, req, res, next) => {
 
 // ==================== 服务器启动 ====================
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3006;
 
 // 启动服务器
 server.listen(PORT, async () => {

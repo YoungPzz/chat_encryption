@@ -2,6 +2,17 @@
 const WebSocket = require('ws');
 const sm2 = require('sm-crypto').sm2;
 
+// 为字符串添加哈希方法
+String.prototype.hashCode = function() {
+  let hash = 0;
+  for (let i = 0; i < this.length; i++) {
+    const char = this.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // 转换为32位整数
+  }
+  return hash;
+};
+
 class WebSocketHandler {
   constructor(wss, roomManager, sm2KeyManager) {
     this.wss = wss;
@@ -189,16 +200,25 @@ class WebSocketHandler {
         timestamp: new Date().toISOString()
       });
 
-      // 发送加入房间的响应
+      // 发送加入房间的响应，只包含基本房间信息，不包含完整内容
+      const basicRoomInfo = {
+        id: roomId,
+        name: roomName,
+        userCount: 1, // 创建者自己
+        maxUsers: options.maxUsers || 50,
+        isPrivate: options.isPrivate || false,
+        description: options.description || ''
+      };
+      
       this.sendToUser(userId, {
         type: 'room_joined',
-        room: this.roomManager.getRoom(roomId),
+        room: basicRoomInfo,
         timestamp: new Date().toISOString()
       });
 
-      // 🔐 分发房间密钥信息给创建者（如果用户有客户端密钥对）  当前阶段只发送一个分片
+      // 🔐 分发房间密钥信息给创建者（只发送一个分片）
       // await this.distributeRoomKeys(userId, roomId);   浏览器调试的时候要打开这个
-      await this.distributeRoomKeysPlain(userId, roomId);
+      await this.distributeSingleRoomShare(userId, roomId);
       // 通知所有用户房间列表更新
       this.broadcastToAll({
         type: 'room_list_update',
@@ -1055,6 +1075,102 @@ class WebSocketHandler {
       console.error(`❌ 分发房间密钥（明文）失败 (${userId}, ${roomId}):`, error);
       console.error(`❌ 错误堆栈:`, error.stack);
       this.sendError(userId, '房间密钥（明文）分发失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 分发单个房间分片给用户
+   * @param {string} userId - 用户ID
+   * @param {string} roomId - 房间ID
+   */
+  async distributeSingleRoomShare(userId, roomId) {
+    console.log(`\n=== 开始分发单个房间分片 ===`);
+    console.log(`🔑 为用户 ${userId} 分发房间 ${roomId} 的单个分片`);
+
+    try {
+      // 获取房间信息
+      const roomInfo = this.roomManager.getRoom(roomId);
+      console.log(`房间信息:`, {
+        hasRoom: !!roomInfo,
+        roomName: roomInfo?.name,
+        shareCount: roomInfo?.shareCount,
+        threshold: roomInfo?.threshold
+      });
+      
+      if (!roomInfo) {
+        console.log(`❌ 房间 ${roomId} 不存在`);
+        this.sendError(userId, `房间 ${roomId} 不存在`);
+        return;
+      }
+
+      // 获取原始房间对象以访问shamirShares属性
+      const originalRoom = this.roomManager.rooms.get(roomId);
+      if (!originalRoom || !originalRoom.shamirShares || originalRoom.shamirShares.length === 0) {
+        console.log(`❌ 房间 ${roomId} 没有分片信息`);
+        this.sendError(userId, '房间分片信息不可用');
+        return;
+      }
+
+      console.log(`✅ 房间 ${roomId} 存在且有分片信息`);
+
+      // 为用户分配一个分片（使用用户ID的哈希值作为索引）
+      const shareIndex = Math.abs(userId.hashCode() % originalRoom.shamirShares.length);
+      const assignedShare = originalRoom.shamirShares[shareIndex];
+      
+      console.log(`🔢 为用户 ${userId} 分配分片索引 ${shareIndex + 1}`);
+      console.log(`🔑 分配的分片:`, {
+        index: assignedShare.index,
+        sharePreview: assignedShare.share.substring(0, 20) + '...',
+        sm3Hash: assignedShare.sm3Hash?.substring(0, 20) + '...'
+      });
+
+      // 发送单个分片信息给用户
+      const shareMessage = {
+        type: 'room_share_first',
+        roomId: roomId,
+        roomName: roomInfo.name,
+        share: assignedShare,
+        shareIndex: shareIndex,
+        totalShares: originalRoom.shamirShares.length,
+        threshold: originalRoom.threshold,
+        message: '房间分片已发送，请收集足够的分片以恢复密钥',
+        timestamp: new Date().toISOString()
+      };
+
+      console.log(`📤 正在发送room_share消息给用户 ${userId}...`);
+      this.sendToUser(userId, shareMessage);
+      console.log(`✅ room_share消息发送成功`);
+
+      // 发送分片信息摘要
+      console.log(`📤 正在发送room_key_summary消息给用户 ${userId}...`);
+      const summaryMessage = {
+        type: 'room_key_summary',
+        roomId: roomId,
+        keyInfo: {
+          keyVersion: originalRoom.keyVersion,
+          shamirInfo: {
+            shareCount: originalRoom.shareCount,
+            threshold: originalRoom.threshold
+          }
+        },
+        derivationSteps: [
+          '1. 服务器为房间生成SM4加密密钥',
+          '2. 服务器使用Shamir密钥分片算法将SM4密钥分成多个分片',
+          '3. 服务器为用户分配一个Shamir分片',
+          '4. 客户端需要收集足够的分片才能恢复完整SM4密钥'
+        ],
+        timestamp: new Date().toISOString()
+      };
+      
+      this.sendToUser(userId, summaryMessage);
+      console.log(`✅ room_key_summary消息发送成功`);
+
+      console.log(`✅ 单个房间分片分发完成`);
+
+    } catch (error) {
+      console.error(`❌ 分发单个房间分片失败 (${userId}, ${roomId}):`, error);
+      console.error(`❌ 错误堆栈:`, error.stack);
+      this.sendError(userId, '房间分片分发失败: ' + error.message);
     }
   }
 
