@@ -305,7 +305,7 @@ class RoomManager {
   async generateRoomKeys(roomId) {
     try {
       // 生成一个新的16字节随机SM4密钥
-      const sm4Key = crypto.randomBytes(16);
+      const sm4Key = crypto.randomBytes(16);  //Kroom
       const sm4KeyHex = sm4Key.toString('hex');
 
       // 使用Shamir分片技术将SM4密钥分为5份，阈值设为3 - 使用await处理异步操作

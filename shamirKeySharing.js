@@ -1,4 +1,5 @@
 const { split, combine } = require('shamir-secret-sharing');
+const sm3 = require('sm-crypto').sm3;
 
 /**
  * Shamir密钥分片管理器
@@ -99,36 +100,70 @@ class ShamirKeySharingManager {
     console.log(`   总分片数: ${shares.length}`);
     console.log(`   分片详情:`);
     
-    shares.forEach((share, index) => {
+    // 序列化分片
+    const serialized = shares.map(share => {
       const hexValue = share.share.toString('hex');
       const base64Value = share.share.toString('base64');
-      console.log(`     分片 ${index + 1}:`);
+      
+      console.log(`     分片 ${share.index}:`);
       console.log(`       索引: ${share.index}`);
       console.log(`       十六进制: ${hexValue}`);
       console.log(`       Base64: ${base64Value}`);
-      console.log(`       长度: ${share.share.length} 字节`);
+      // console.log(`       长度: ${share.share.length} 字节`);
+      
+      // 对Base64数据进行SM3哈希
+      const sm3Hash = sm3(base64Value);
+      console.log(`       SM3哈希: ${sm3Hash.substring(0, 20)}...`);
+      
+      return {
+        index: share.index,
+        share: base64Value,
+        sm3Hash: sm3Hash
+      };
     });
     
-    // 序列化分片
-    const serialized = shares.map(share => ({
-      index: share.index,
-      share: share.share.toString('base64')
-    }));
-    
-    console.log(`📋 序列化后的分片数据:`, serialized);
+    // console.log(`📋 序列化后的分片数据:`, serialized);
     return serialized;
   }
   
   /**
    * 从字符串反序列化分片对象
-   * @param {Array<{index: number, share: string}>} serializedShares - 序列化的分片数组
-   * @returns {Array<{index: number, share: Buffer}>} 反序列化后的分片数组
+   * @param {Array<{index: number, share: string, sm3Hash: string}>} serializedShares - 序列化的分片数组
+   * @returns {Array<{index: number, share: Buffer, sm3Hash: string}>} 反序列化后的分片数组
    */
   static deserializeShares(serializedShares) {
-    return serializedShares.map(share => ({
-      index: share.index,
-      share: Buffer.from(share.share, 'base64')
-    }));
+    console.log(`\n🔍 反序列化分片信息:`);
+    console.log(`   总分片数: ${serializedShares.length}`);
+    
+    return serializedShares.map(share => {
+      const shareBuffer = Buffer.from(share.share, 'base64');
+      
+      // 验证SM3哈希
+      if (share.sm3Hash) {
+        const computedHash = sm3(share.share);
+        const hashValid = computedHash === share.sm3Hash;
+        
+        console.log(`     分片 ${share.index}:`);
+        console.log(`       索引: ${share.index}`);
+        console.log(`       Base64长度: ${share.share.length}`);
+        console.log(`       Buffer长度: ${shareBuffer.length} 字节`);
+        console.log(`       SM3哈希验证: ${hashValid ? '✅ 通过' : '❌ 失败'}`);
+        console.log(`       存储的哈希: ${share.sm3Hash.substring(0, 20)}...`);
+        console.log(`       计算的哈希: ${computedHash.substring(0, 20)}...`);
+        
+        if (!hashValid) {
+          console.error(`❌ 分片 ${share.index} 的SM3哈希验证失败，数据可能被篡改！`);
+        }
+      } else {
+        console.log(`     分片 ${share.index}: 无SM3哈希验证`);
+      }
+      
+      return {
+        index: share.index,
+        share: shareBuffer,
+        sm3Hash: share.sm3Hash
+      };
+    });
   }
   
   /**
