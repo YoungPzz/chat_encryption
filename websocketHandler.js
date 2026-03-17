@@ -39,7 +39,21 @@ class WebSocketHandler {
    * @param {Object} req - HTTP请求对象
    */
   handleConnection(ws, req) {
-    const userId = this.generateUserId();
+    // 从URL参数中获取用户ID
+    let userId;
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      userId = url.searchParams.get('userId');
+    } catch (error) {
+      console.error('解析URL参数失败:', error);
+      userId = null;
+    }
+    
+    // 如果客户端没有提供用户ID，使用系统生成的作为后备
+    if (!userId) {
+      userId = this.generateUserId();
+    }
+    
     const clientIp = req.socket.remoteAddress;
     
     // 保存连接信息
@@ -62,6 +76,7 @@ class WebSocketHandler {
     // 监听关闭事件
     ws.on('close', () => {
       this.handleDisconnect(userId);
+      console.log(`用户 ${userId} 断开连接`);
     });
 
     // 监听错误事件
@@ -70,10 +85,10 @@ class WebSocketHandler {
     });
 
     // 发送欢迎消息和服务器公钥
-    this.sendServerPublicKey(userId);
+    // this.sendServerPublicKey(userId);
 
     // 发送当前房间列表
-    this.sendRoomList(userId);
+    // this.sendRoomList(userId);
   }
 
   /**
@@ -288,7 +303,7 @@ class WebSocketHandler {
     }
 
     const userInfo = this.userInfo.get(userId) || { username: `用户${userId.slice(-4)}` };
-    
+    console.log("处理退出房间")
     this.roomManager.leaveRoom(userId);
 
     // 获取更新后的房间信息
@@ -335,7 +350,7 @@ class WebSocketHandler {
           // 为房间内所有用户分发新的密钥分片
           for (const roomUserId of originalRoom.users) {
             try {
-              await this.distributeRoomKeys(roomUserId, roomId);
+              await this.distributeRoomKeysPlain(roomUserId, roomId);
               console.log(`✅ 已为用户 ${roomUserId} 分发新的密钥分片`);
             } catch (error) {
               console.error(`❌ 为用户 ${roomUserId} 分发密钥分片失败:`, error);
@@ -534,50 +549,56 @@ class WebSocketHandler {
     console.log(`用户 ${userId} 断开连接`);
     
     // 从房间中移除用户
-    const roomId = this.roomManager.getUserRoom(userId);
+    const roomIdBeforeLeave = this.roomManager.getUserRoom(userId);
+    console.log(`用户 ${userId} 所在房间: ${roomIdBeforeLeave || '未加入任何房间'}`);
+    
     this.roomManager.leaveRoom(userId);
     
     // 清理数据
     this.connections.delete(userId);
     this.userInfo.delete(userId);
+    console.log(`离开前房间 ID: ${roomIdBeforeLeave}`);
     
     // 如果房间存在且还有人，重新生成密钥并分发
-    if (roomId) {
-      const room = this.roomManager.getRoom(roomId);
-      if (room && room.userCount > 0) {
-        try {
-          console.log(`\n=== 用户断开连接，房间 ${roomId} 还有 ${room.userCount} 人，重新生成密钥 ===`);
-          
-          // 获取原始房间对象
-          const originalRoom = this.roomManager.rooms.get(roomId);
-          if (originalRoom) {
-            // 重新生成房间密钥
-            const newRoomKeys = await this.roomManager.generateRoomKeys(roomId);
+    if (roomIdBeforeLeave) {
+      const room = this.roomManager.getRoom(roomIdBeforeLeave);
+      if (room) {
+        console.log(`房间 ${roomIdBeforeLeave} 还有 ${room.userCount} 人`);
+        if (room.userCount > 0) {
+          try {
+            console.log(`\n=== 用户断开连接，房间 ${roomIdBeforeLeave} 还有 ${room.userCount} 人，重新生成密钥 ===`);
             
-            // 更新房间密钥信息
-            originalRoom.sm4Key = newRoomKeys.sm4Key;
-            originalRoom.keyVersion += 1;
-            originalRoom.keyCreatedAt = new Date().toISOString();
-            originalRoom.shamirShares = newRoomKeys.shares;
-            originalRoom.shareCount = newRoomKeys.shareCount;
-            originalRoom.threshold = newRoomKeys.threshold;
-            
-            console.log(`✅ 房间 ${roomId} 密钥已重新生成`);
-            console.log(`   新SM4密钥预览: ${newRoomKeys.sm4Key.substring(0, 16)}...`);
-            console.log(`   新Shamir分片: ${newRoomKeys.shareCount}份 (阈值: ${newRoomKeys.threshold})`);
-            
-            // 为房间内所有用户分发新的密钥分片
-            for (const roomUserId of originalRoom.users) {
-              try {
-                await this.distributeRoomKeys(roomUserId, roomId);
-                console.log(`✅ 已为用户 ${roomUserId} 分发新的密钥分片`);
-              } catch (error) {
-                console.error(`❌ 为用户 ${roomUserId} 分发密钥分片失败:`, error);
+            // 获取原始房间对象
+            const originalRoom = this.roomManager.rooms.get(roomIdBeforeLeave);
+            if (originalRoom) {
+              // 重新生成房间密钥
+              const newRoomKeys = await this.roomManager.generateRoomKeys(roomIdBeforeLeave);
+              
+              // 更新房间密钥信息
+              originalRoom.sm4Key = newRoomKeys.sm4Key;
+              originalRoom.keyVersion += 1;
+              originalRoom.keyCreatedAt = new Date().toISOString();
+              originalRoom.shamirShares = newRoomKeys.shares;
+              originalRoom.shareCount = newRoomKeys.shareCount;
+              originalRoom.threshold = newRoomKeys.threshold;
+              
+              console.log(`✅ 房间 ${roomIdBeforeLeave} 密钥已重新生成`);
+              console.log(`   新SM4密钥预览: ${newRoomKeys.sm4Key.substring(0, 16)}...`);
+              console.log(`   新Shamir分片: ${newRoomKeys.shareCount}份 (阈值: ${newRoomKeys.threshold})`);
+              
+              // 为房间内所有用户分发新的密钥分片
+              for (const roomUserId of originalRoom.users) {
+                try {
+                  await this.distributeRoomKeysPlain(roomUserId, roomIdBeforeLeave);
+                  console.log(`✅ 已为用户 ${roomUserId} 分发新的密钥分片`);
+                } catch (error) {
+                  console.error(`❌ 为用户 ${roomUserId} 分发密钥分片失败:`, error);
+                }
               }
             }
+          } catch (error) {
+            console.error(`❌ 重新生成房间密钥失败:`, error);
           }
-        } catch (error) {
-          console.error(`❌ 重新生成房间密钥失败:`, error);
         }
       }
     }
@@ -711,7 +732,7 @@ class WebSocketHandler {
       // 发送欢迎消息和服务器公钥
       this.sendToUser(userId, welcomeMessage);
 
-      console.log(`✅ 用户 ${userId} 连接，服务器公钥已发送: ${serverKeyInfo.publicKey.slice(0, 20)}...`);
+      console.log(`✅ 用户 ${userId} 连接`);
     } catch (error) {
       console.error('❌ 发送服务器公钥失败:', error);
       console.error('错误堆栈:', error.stack);
@@ -1019,8 +1040,8 @@ class WebSocketHandler {
       console.log(`房间信息:`, {
         hasRoom: !!roomInfo,
         roomName: roomInfo?.name,
-        sm4Key: roomInfo?.sm4Key,
-        shamirShares: roomInfo?.shamirShares,
+        shareCount: roomInfo?.shareCount,
+        threshold: roomInfo?.threshold
       });
       
       if (!roomInfo) {
@@ -1029,22 +1050,47 @@ class WebSocketHandler {
         return;
       }
 
-      console.log(`✅ 房间 ${roomId} 存在且有密钥信息`);
+      // 获取原始房间对象以访问shamirShares属性
+      const originalRoom = this.roomManager.rooms.get(roomId);
+      if (!originalRoom || !originalRoom.shamirShares || originalRoom.shamirShares.length < 3) {
+        console.log(`❌ 房间 ${roomId} 分片信息不足`);
+        this.sendError(userId, '房间分片信息不足');
+        return;
+      }
 
-      // 直接发送明文密钥信息
-      const roomKeyMessage = {
-        type: 'room_key_info_plain',
+      console.log(`✅ 房间 ${roomId} 存在且有足够的分片信息`);
+
+      // 为用户分配三个分片
+      const assignedShares = [];
+      const shareCount = originalRoom.shamirShares.length;
+      
+      // 使用用户ID的哈希值作为基础索引
+      const baseIndex = Math.abs(userId.hashCode() % shareCount);
+      
+      // 选择三个不同的分片
+      for (let i = 0; i < 3; i++) {
+        const shareIndex = (baseIndex + i) % shareCount;
+        assignedShares.push(originalRoom.shamirShares[shareIndex]);
+      }
+      
+      console.log(`🔢 为用户 ${userId} 分配分片索引: ${assignedShares.map((share, index) => (Math.abs(userId.hashCode() % originalRoom.shamirShares.length) + index) % originalRoom.shamirShares.length + 1).join(', ')}`);
+      console.log(`🔑 分配的分片数量: ${assignedShares.length}`);
+
+      // 发送三个分片信息给用户
+      const sharesMessage = {
+        type: 'room_shares_plain',
         roomId: roomId,
         roomName: roomInfo.name,
-        sm4Key: roomInfo.sm4Key,
-        keyVersion: roomInfo.keyVersion,
-        message: '房间密钥信息已明文发送',
+        shares: assignedShares,
+        totalShares: originalRoom.shamirShares.length,
+        threshold: originalRoom.threshold,
+        message: '房间分片已发送，请使用这些分片恢复密钥',
         timestamp: new Date().toISOString()
       };
 
-      console.log(`📤 正在发送room_key_info_plain消息给用户 ${userId}...`);
-      this.sendToUser(userId, roomKeyMessage);
-      console.log(`✅ room_key_info_plain消息发送成功`);
+      console.log(`📤 正在发送room_shares_plain消息给用户 ${userId}...`);
+      this.sendToUser(userId, sharesMessage);
+      console.log(`✅ room_shares_plain消息发送成功`);
 
       // 发送房间密钥信息摘要
       console.log(`📤 正在发送room_key_summary消息给用户 ${userId}...`);
@@ -1052,21 +1098,22 @@ class WebSocketHandler {
         type: 'room_key_summary',
         roomId: roomId,
         keyInfo: {
-          keyVersion: roomInfo.keyVersion,
+          keyVersion: originalRoom.keyVersion,
           shamirInfo: {
-            shareCount: roomInfo.shareCount,
-            threshold: roomInfo.threshold
+            shareCount: originalRoom.shareCount,
+            threshold: originalRoom.threshold
           }
         },
         derivationSteps: [
           '1. 服务器为房间生成SM4加密密钥',
-          '2. 服务器直接发送明文SM4密钥给客户端',
-          '3. 客户端直接使用SM4密钥进行加密通信'
+          '2. 服务器使用Shamir密钥分片算法将SM4密钥分成多个分片',
+          '3. 服务器为用户分配三个Shamir分片',
+          '4. 客户端使用这些分片恢复完整SM4密钥'
         ],
         timestamp: new Date().toISOString()
       };
       
-      this.sendToUser(userId, summaryMessage);
+      // this.sendToUser(userId, summaryMessage);
       console.log(`✅ room_key_summary消息发送成功`);
 
       console.log(`✅ 房间密钥（明文）分发完成`);

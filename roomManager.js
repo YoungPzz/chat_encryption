@@ -20,7 +20,8 @@ class RoomManager {
    */
   async createRoom(roomId, roomName, options = {}) {
     if (this.rooms.has(roomId)) {
-      throw new Error(`房间 ${roomId} 已存在`);
+      console.log("房间" + roomId + "也存在")
+      return null;
     }
 
     // 生成SM4密钥
